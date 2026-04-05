@@ -24,10 +24,13 @@
 
 Install K3s with TLS SANs for both hostname and static IP so the API server certificate remains valid when node 02 joins.
 
+> **Important — set `--node-ip` at install time.** K3s auto-detects the node IP on first startup and caches it. If the network changes later (interface disabled, DHCP reassignment, WiFi removed), K3s will fail to start with `failed to find interface with specified node ip`. Always pin `--node-ip` to the static Ethernet IP at install time to prevent this. Reserve the static IP on the router by MAC address *before* running the installer.
+
 ```bash
 curl -sfL https://get.k3s.io | sh -s - \
   --tls-san panda-control.local \
   --tls-san <your-static-ip> \
+  --node-ip <your-static-ip> \
   --write-kubeconfig-mode 644
 ```
 
@@ -361,3 +364,22 @@ Pre-requisites that enabled smooth join:
 - Port 6443 open on panda-control (Step 2)
 - TLS SANs set at K3s install time (Step 1)
 - Registry config copied post-join (Step 3)
+
+---
+
+## Lessons Learned
+
+### K3s node-ip must be pinned at install time
+
+**What happened:** panda-control was installed with WiFi and Ethernet both active. K3s auto-detected and cached the WiFi IP (`192.168.7.86`) as the node's InternalIP. When WiFi was later disabled to use Ethernet-only, K3s crashed on every startup with:
+```
+failed to start networking: unable to initialize network policy controller:
+error getting node subnet: failed to find interface with specified node ip
+```
+K3s was looking for an interface with the cached WiFi IP, which no longer existed.
+
+**Fix applied:** Added `--node-ip <ethernet-ip>` to `ExecStart` in `/etc/systemd/system/k3s.service` and restarted. K3s then registered the correct IP and stabilized.
+
+**Secondary effect:** Prometheus node-exporter scrape targets still pointed to the old WiFi IP and showed `down` until K3s service discovery updated after re-registration.
+
+**Prevention:** Always reserve the static IP on the router by MAC address and set `--node-ip` at K3s install time (see Step 1). This applies to both control plane and worker nodes.
