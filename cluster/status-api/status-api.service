@@ -3,9 +3,9 @@ Description=Cluster Status API
 After=network.target
 
 [Service]
-User=delta
-WorkingDirectory=/home/delta/natonet-labs/bare-metal-mlops-sandbox/cluster/status-api
-ExecStart=/home/delta/dx-all-suite/dx-venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8001
+User=<your-username>
+WorkingDirectory=/home/<your-username>/natonet-labs/bare-metal-mlops-sandbox/cluster/status-api
+ExecStart=/home/<your-username>/dx-all-suite/dx-venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8001
 Restart=on-failure
 RestartSec=5s
 Environment=PYTHONUNBUFFERED=1
