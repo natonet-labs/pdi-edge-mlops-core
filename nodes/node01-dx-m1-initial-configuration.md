@@ -333,7 +333,7 @@ sudo systemctl restart xrdp
 |---|---|
 | Host | `panda-control.local` / `<your-static-ip>` (Ethernet only — WiFi disabled) |
 | Port | `3389` |
-| Username | `delta` |
+| Username | `<your-username>` |
 | Session | XFCE4 (independent from physical display) |
 | Client | Microsoft Remote Desktop (Windows App) on Mac |
 
@@ -515,7 +515,7 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 ## 13. System Summary
 
 ```
-delta@panda-control (Node 01)
+<your-username>@panda-control (Node 01)
 ├── Hardware
 │   ├── LattePanda 3 Delta (Intel N5105, 8GB RAM)
 │   ├── 64GB eMMC           ← Recovery OS (auto-mount disabled via udev)

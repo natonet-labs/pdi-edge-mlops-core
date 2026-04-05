@@ -238,9 +238,9 @@ After=dxrt.service
 Requires=dxrt.service
 
 [Service]
-User=delta
-WorkingDirectory=/home/delta/natonet-labs/bare-metal-mlops-sandbox/cluster/inference
-ExecStart=/home/delta/dx-all-suite/dx-venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8000
+User=<your-username>
+WorkingDirectory=/home/<your-username>/natonet-labs/bare-metal-mlops-sandbox/cluster/inference
+ExecStart=/home/<your-username>/dx-all-suite/dx-venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=5s
 Environment=PYTHONUNBUFFERED=1
@@ -254,7 +254,7 @@ sudo systemctl enable --now yolov8n-inference
 ```
 
 > **Note:** `MODEL_PATH` in `app.py` must be the host filesystem path, not a container path:
-> `/home/delta/dx-all-suite/workspace/res/models/models-2_2_1/YoloV8N.dxnn`
+> `/home/<your-username>/dx-all-suite/workspace/res/models/models-2_2_1/YoloV8N.dxnn`
 
 Verify:
 ```bash
@@ -344,7 +344,7 @@ curl -sfL https://get.k3s.io | K3S_URL=https://<panda-control-ip>:6443 K3S_TOKEN
 **Registry config (copy from panda-control, run on panda-worker):**
 ```bash
 # from panda-control:
-scp /etc/rancher/k3s/registries.yaml delta@panda-worker.local:/tmp/registries.yaml
+scp /etc/rancher/k3s/registries.yaml <your-username>@panda-worker.local:/tmp/registries.yaml
 
 # on panda-worker:
 sudo mkdir -p /etc/rancher/k3s
@@ -371,7 +371,7 @@ Pre-requisites that enabled smooth join:
 
 ### K3s node-ip must be pinned at install time
 
-**What happened:** panda-control was installed with WiFi and Ethernet both active. K3s auto-detected and cached the WiFi IP (`192.168.7.86`) as the node's InternalIP. When WiFi was later disabled to use Ethernet-only, K3s crashed on every startup with:
+**What happened:** panda-control was installed with WiFi and Ethernet both active. K3s auto-detected and cached the WiFi IP (`<wifi-ip>`) as the node's InternalIP. When WiFi was later disabled to use Ethernet-only, K3s crashed on every startup with:
 ```
 failed to start networking: unable to initialize network policy controller:
 error getting node subnet: failed to find interface with specified node ip

@@ -195,7 +195,7 @@ sudo ufw enable
 panda-worker is a pure compute node with no GUI workloads. xrdp is not installed. Access is SSH only.
 
 ```bash
-ssh delta@panda-worker.local
+ssh <your-username>@panda-worker.local
 ```
 
 If xrdp is ever needed (e.g. for a GUI debugging session), follow the same procedure as panda-control in `node01-dx-m1-initial-configuration.md` §8, substituting `panda-worker` for the hostname.
@@ -208,7 +208,7 @@ Copy the K3s registry mirror config from panda-control so panda-worker can pull 
 
 **From panda-control:**
 ```bash
-scp /etc/rancher/k3s/registries.yaml delta@panda-worker.local:/tmp/registries.yaml
+scp /etc/rancher/k3s/registries.yaml <your-username>@panda-worker.local:/tmp/registries.yaml
 ```
 
 **On panda-worker:**
@@ -290,7 +290,7 @@ kubectl delete pod test-worker
 ## Node 02 System Summary
 
 ```
-delta@panda-worker (Node 02)
+<your-username>@panda-worker (Node 02)
 ├── Hardware
 │   ├── LattePanda 3 Delta (Intel N5105, 8GB RAM)
 │   ├── 64GB eMMC           ← Recovery (auto-mount disabled via udev)

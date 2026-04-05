@@ -458,7 +458,7 @@ NPU 2: voltage 750 mV, clock 1000 MHz, temperature 6X'C
 ## 13. System Summary
 
 ```
-delta@panda-control
+<your-username>@panda-control
 ├── Hardware
 │   ├── LattePanda 3 Delta (Intel N5105, 8GB RAM)
 │   ├── 64GB eMMC  ←  Ubuntu 24.04 LTS (OS)
