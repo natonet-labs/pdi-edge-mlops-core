@@ -70,7 +70,7 @@ Observability is handled by Prometheus and Grafana, scraping both cluster metric
 | 6 | YOLOv8N inference service (NPU-accelerated, host-native) | Done |
 | 7 | SCRFD face detection service (NPU-accelerated, host-native) | Done |
 | 8 | Multi-node networking verification (Flannel VXLAN + kube-dns) | Done |
-| 9 | Grafana dashboard committed to repo | Upcoming |
+| 9 | Grafana dashboard committed to repo | Done |
 | 10 | CI/CD pipeline (GitHub Actions → local registry) | Done |
 
 ### Phase 2 — Acceleration & Serving — Upcoming
