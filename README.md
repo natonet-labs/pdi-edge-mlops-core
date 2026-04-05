@@ -1,7 +1,7 @@
 # Bare Metal MLOps Sandbox
 
 ![Status](https://img.shields.io/badge/Status-In%20Progress-yellow)
-![Phase](https://img.shields.io/badge/Phase-1%20Foundation-blue)
+![Phase](https://img.shields.io/badge/Phase-1%20Complete-green)
 ![OS](https://img.shields.io/badge/OS-Ubuntu%2024.04-orange?logo=ubuntu&logoColor=white)
 ![K3s](https://img.shields.io/badge/Orchestration-K3s-326CE5?logo=kubernetes&logoColor=white)
 [![DeepX DX-M1](https://img.shields.io/badge/NPU-DeepX%20DX--M1%2025%20TOPS-blue)](https://developer.deepx.ai)
@@ -71,7 +71,7 @@ Observability is handled by Prometheus and Grafana, scraping both cluster metric
 | 7 | SCRFD face detection service (NPU-accelerated, host-native) | Done |
 | 8 | Multi-node networking verification (Flannel VXLAN + kube-dns) | Done |
 | 9 | Grafana dashboard committed to repo | Upcoming |
-| 10 | CI/CD pipeline (GitHub Actions → local registry) | Upcoming |
+| 10 | CI/CD pipeline (GitHub Actions → local registry) | Done |
 
 ### Phase 2 — Acceleration & Serving — Upcoming
 
