@@ -376,7 +376,104 @@ enable_shared_drives=false
 
 ---
 
-## 9. Session Type Verification
+## 9. Network Configuration — Static IP
+
+panda-control is the K3s control plane. Its Ethernet IP must be stable — if it changes, the cluster breaks. Ubuntu 24.04 cloud images use `cloud-init` to manage network config, which means `50-cloud-init.yaml` controls the interface with `dhcp4: true` by default. Without fixing this, the IP is held stable only by a router DHCP reservation, which is not a reliable guarantee.
+
+### 9.1 Identify the Active Ethernet Interface
+
+The Ethernet interface name differs between machines — do not assume it.
+
+```bash
+ip link show
+# Look for the enp* interface that is UP and not a virtual interface (flannel, cni0, veth*)
+# panda-control: enp2s0
+# panda-worker:  enp1s0
+```
+
+Confirm it has an active IP and note the current address and gateway:
+
+```bash
+ip addr show <interface>
+ip route show | grep default
+# default via <your-gateway-ip> dev <interface> proto dhcp src <your-static-ip>
+#                                                        ^^^^ still a DHCP lease — needs fixing
+```
+
+### 9.2 What Was Found on panda-control
+
+```bash
+ls /etc/netplan/
+# 01-network-manager-all.yaml   ← sets renderer: NetworkManager globally
+# 50-cloud-init.yaml            ← enp2s0 dhcp4: true + WiFi config (cloud-init managed)
+# 90-NM-c468eb42-*.yaml         ← NetworkManager WiFi connection (auto-generated)
+```
+
+Three issues:
+- `50-cloud-init.yaml` controlling `enp2s0` with `dhcp4: true` — would reset on reboot
+- No cloud-init network disable config in `/etc/cloud/cloud.cfg.d/`
+- Netplan file permissions too open (netplan warning on apply)
+
+### 9.3 Disable cloud-init Network Management
+
+Prevents cloud-init from regenerating `50-cloud-init.yaml` and overwriting static config on reboot.
+
+```bash
+sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<EOF
+network: {config: disabled}
+EOF
+```
+
+### 9.4 Write Static IP Config
+
+Overwrite `50-cloud-init.yaml` with a static Ethernet-only config. WiFi (`wlo1`) is disabled and removed from this file.
+
+```bash
+sudo tee /etc/netplan/50-cloud-init.yaml <<EOF
+network:
+  version: 2
+  ethernets:
+    enp2s0:
+      dhcp4: false
+      addresses:
+        - <your-static-ip>/22
+      routes:
+        - to: default
+          via: <your-gateway-ip>
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 8.8.8.8
+EOF
+```
+
+> **Subnet is /22, not /24.** The home network uses a /22 block. Preserve the exact prefix from `ip addr show`.
+
+> **Interface is `enp2s0`**, not `enp1s0`. panda-control and panda-worker have different Ethernet interface names — always verify with `ip link show` before writing the config.
+
+### 9.5 Fix Netplan File Permissions
+
+```bash
+sudo chmod 600 /etc/netplan/01-network-manager-all.yaml
+sudo chmod 600 /etc/netplan/50-cloud-init.yaml
+sudo chmod 600 /etc/netplan/90-NM-c468eb42-54ff-4b88-bec2-598d0e82f133.yaml
+```
+
+### 9.6 Apply and Verify
+
+```bash
+sudo netplan apply
+
+ip addr show enp2s0
+# inet line should show valid_lft forever (not a lease countdown)
+
+ip route show | grep default
+# proto static  (not proto dhcp)
+```
+
+---
+
+## 10. Session Type Verification
 
 ```bash
 echo $XDG_SESSION_TYPE   # expected: x11
@@ -387,7 +484,7 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 
 ---
 
-## 10. Known Limitations
+## 11. Known Limitations
 
 | Limitation | Detail |
 |---|---|
@@ -400,7 +497,7 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 
 ---
 
-## 11. Key File Locations
+## 12. Key File Locations
 
 | File | Purpose |
 |---|---|
@@ -415,7 +512,7 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 
 ---
 
-## 12. System Summary
+## 13. System Summary
 
 ```
 delta@panda-control (Node 01)
@@ -460,7 +557,7 @@ delta@panda-control (Node 01)
 
 ---
 
-## 13. References
+## 14. References
 
 - [DeepX Developer Portal](https://developer.deepx.ai)
 - [dx-all-suite README](~/dx-all-suite/README.md)

@@ -27,10 +27,20 @@
 
 > **Why this must be done on the OS, not just the router:** A DHCP reservation on the router is tied to the router — it breaks if the router is replaced, reconfigured, or the node moves. A static IP configured in netplan survives router changes, DHCP failures, and network topology changes. The OS is the source of truth for the node IP.
 
-### 1.1 Inspect Current Network State
+### 1.1 Identify the Active Ethernet Interface
+
+The Ethernet interface name differs between machines — do not assume it.
 
 ```bash
-ip link show        # identify the active Ethernet interface
+ip link show
+# Look for the enp* interface that is UP and not a virtual interface (flannel, cni0, veth*)
+# panda-control: enp2s0
+# panda-worker:  enp1s0
+```
+
+Then inspect the full network state:
+
+```bash
 ip addr show        # note current IP and subnet prefix
 ip route show       # note default gateway
 ls /etc/netplan/    # list config files
