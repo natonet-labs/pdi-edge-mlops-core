@@ -151,28 +151,42 @@ The DKMS source at `/usr/src/dxrt-driver-dkms-2.1.0-2/` handles kernel module re
 
 ---
 
-## 5. Thermal Management
+## 5. Thermal Management — "Level-Fill Thermal Sandwich"
 
-The DX-M1 in the Titan Case (ABS plastic) requires a **"Level-Fill Thermal Sandwich"** to maintain stable temperatures. Without it, the NPU chip can exceed 60°C due to uneven contact and trapped heat.
+The DX-M1 in the Titan Case (ABS plastic) requires a thermal sandwich to maintain stable temperatures. Without it, the NPU chip exceeds 60°C due to uneven board surface and trapped heat.
 
-### Strategy
+### The Problem
 
-The DX-M1 board surface is uneven - the main NPU chip sits higher than surrounding components. Stacking a single thick thermal pad creates air pockets that act as insulators.
-
-**Solution:** Fill valleys first, then cap with a thin continuous bridge pad.
+The DX-M1 board is uneven — the main NPU chip sits higher than the surrounding components. Placing a single thick thermal pad over everything creates air pockets in the valleys that act as insulators rather than conductors.
 
 ### Materials
-- 1mm thermal pad (valley fill)
-- 0.5mm thermal pad (cap layer)
-- Small aluminum heatsink
-- Kapton tape (electrical isolation)
+
+| Item | Purpose |
+|---|---|
+| 1mm thermal pad | Valley fill — brings recesses flush with the chip surface |
+| 0.5mm thermal pad | Cap layer — continuous bridge across the entire module |
+| Small aluminum heatsink | Heat sink |
+| Kapton tape | Electrical isolation over gold components |
 
 ### Build Steps
 
-1. **Safety:** Cover small gold components around the NPU chip with Kapton tape to prevent electrical shorts.
-2. **Valley-fill:** Cut 1mm pad into pieces and place into recesses around the main chip until flush with the chip surface.
-3. **Cap:** Lay a single continuous 0.5mm strip across the entire module, bridging the filler pieces and the chip.
-4. **Heatsink:** Place heatsink on top. Ensure a small air gap between the heatsink bottom and the plastic case floor - direct contact traps heat and prevents convection.
+#### Step 1 — Safety (Kapton tape)
+Cover the small gold components around the main NPU chip with Kapton tape. This prevents thermal pad material from causing electrical shorts on the board.
+
+#### Step 2 — Valley fill (1mm pad)
+Cut the 1mm pad into small pieces and place them into the recesses around the main chip. Goal: bring the valleys up to the same height as the chip surface. Do not use one large pad — it will bow and create air gaps.
+
+#### Step 3 — Cap (0.5mm strip)
+Lay a single continuous 0.5mm strip across the entire module, covering both the 1mm filler pieces and the main chip. This creates a flat, solid bridge for the heatsink to sit on.
+
+#### Step 4 — Heatsink
+Place the heatsink on top. Ensure a **small air gap** between the heatsink base and the plastic case floor — direct contact with plastic traps heat and prevents convection.
+
+### Why It Works
+
+- **No trapped air:** Valleys filled with conductive pad material instead of dead air
+- **No flex:** Even contact prevents the board from bowing under heatsink weight
+- **Convection:** Air gap at the base allows airflow across the heatsink fins
 
 **Result:** Stable idle temperatures of ~52°C (vs. 60°C+ without thermal management).
 
@@ -565,4 +579,3 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 - [SCRFD Face Detection Paper](https://arxiv.org/abs/2105.04714)
 - [DX-M1 Setup Guide](/docs/hardware/dx-m1-setup-guide.md) - Full installation guide
 - [ADR-0001: DeepX DX-M1 vs Hailo-8](/docs/adr/0001-choosing-deepx-dxm1-over-hailo8.md) - Hardware selection rationale
-- [Thermal Sandwich Guide](/docs/hardware/thermal-sandwich.md) - Thermal management guide
