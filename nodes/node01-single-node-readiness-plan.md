@@ -383,3 +383,24 @@ K3s was looking for an interface with the cached WiFi IP, which no longer existe
 **Secondary effect:** Prometheus node-exporter scrape targets still pointed to the old WiFi IP and showed `down` until K3s service discovery updated after re-registration.
 
 **Prevention:** Always reserve the static IP on the router by MAC address and set `--node-ip` at K3s install time (see Step 1). This applies to both control plane and worker nodes.
+
+### Follow installation order: static IP on OS first, then K3s
+
+The root cause above was avoidable by following the industry-standard node provisioning order:
+
+```
+1. Decide: which interface? (Ethernet or WiFi — never both for a cluster node)
+2. Assign a static IP on the OS itself (netplan/nmcli) — not just a router DHCP reservation
+3. Verify the node always boots with that IP regardless of router or network changes
+4. Then install K3s with --node-ip pointing to that interface
+```
+
+This is not just a "production vs home lab" distinction. It applies to any cluster where the installation standard is followed deliberately. The standard exists to force upfront decisions:
+
+- **Which interface will this node use permanently?** A node with both WiFi and Ethernet active is ambiguous — K3s will pick one and cache it.
+- **Is the IP stable across reboots and router changes?** A DHCP reservation on the router works until the router is replaced, reconfigured, or the node moves to a different network.
+- **Is the OS the source of truth for the IP?** It should be. A static IP configured in netplan survives router replacements, DHCP failures, and network topology changes.
+
+Had this order been followed on panda-control — decide on Ethernet-only, configure a static IP in netplan, then install K3s — the WiFi interface would never have been a factor and `--node-ip` would have been correct from day one.
+
+**For panda-worker and any future nodes:** configure a static IP via netplan before running the K3s agent installer.
