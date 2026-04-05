@@ -21,9 +21,10 @@
 10. [Permissions Setup](#10-permissions-setup)
 11. [Persistent Module Loading](#11-persistent-module-loading)
 12. [Verification](#12-verification)
-13. [System Summary](#13-system-summary)
-14. [Known Limitations](#14-known-limitations)
-15. [Troubleshooting Reference](#15-troubleshooting-reference)
+13. [Thermal Management](#13-thermal-management)
+14. [System Summary](#14-system-summary)
+15. [Known Limitations](#15-known-limitations)
+16. [Troubleshooting Reference](#16-troubleshooting-reference)
 
 ---
 
@@ -455,7 +456,50 @@ NPU 2: voltage 750 mV, clock 1000 MHz, temperature 6X'C
 
 ---
 
-## 13. System Summary
+## 13. Thermal Management
+
+The DX-M1 requires a **"Level-Fill Thermal Sandwich"** to maintain stable temperatures under sustained inference load. Without it, the NPU chip exceeds 60°C due to the uneven board surface trapping heat.
+
+> The specific materials below are for the **Titan Case** (ABS plastic enclosure). The underlying problem — uneven board surface causing poor heatsink contact — applies to any enclosure.
+
+### The Problem
+
+The DX-M1 board is uneven: the main NPU chip sits higher than the surrounding components. Placing a single thick thermal pad over everything creates air pockets in the valleys that act as insulators rather than conductors.
+
+### Materials
+
+| Item | Purpose |
+|---|---|
+| 1mm thermal pad | Valley fill — brings recesses flush with the chip surface |
+| 0.5mm thermal pad | Cap layer — continuous bridge across the entire module |
+| Small aluminum heatsink | Heat dissipation |
+| Kapton tape | Electrical isolation over gold components |
+
+### Build Steps
+
+#### Step 1 — Safety (Kapton tape)
+Cover the small gold components around the main NPU chip with Kapton tape to prevent thermal pad material from causing electrical shorts.
+
+#### Step 2 — Valley fill (1mm pad)
+Cut the 1mm pad into small pieces and place them into the recesses around the main chip. Goal: bring the valleys up to the same height as the chip surface. Do not use one large pad — it will bow and create air gaps.
+
+#### Step 3 — Cap (0.5mm strip)
+Lay a single continuous 0.5mm strip across the entire module, covering both the 1mm filler pieces and the main chip. This creates a flat, solid bridge for the heatsink.
+
+#### Step 4 — Heatsink
+Place the heatsink on top. Ensure a **small air gap** between the heatsink base and the plastic case floor — direct contact with plastic traps heat and prevents convection.
+
+### Why It Works
+
+- **No trapped air:** Valleys filled with conductive pad material instead of dead air
+- **No flex:** Even contact prevents the board from bowing under heatsink weight
+- **Convection:** Air gap at the base allows airflow across the heatsink fins
+
+**Result:** Stable idle temperatures of ~52°C (vs. 60°C+ without thermal management).
+
+---
+
+## 14. System Summary
 
 ```
 <your-username>@panda-control
@@ -485,7 +529,7 @@ NPU 2: voltage 750 mV, clock 1000 MHz, temperature 6X'C
 
 ---
 
-## 14. Known Limitations
+## 15. Known Limitations
 
 | Limitation | Detail |
 | --- | --- |
@@ -496,7 +540,7 @@ NPU 2: voltage 750 mV, clock 1000 MHz, temperature 6X'C
 
 ---
 
-## 15. Troubleshooting Reference
+## 16. Troubleshooting Reference
 
 ### DX-M1 not appearing in `lspci`
 

@@ -10,7 +10,7 @@
 
 ## Overview
 
-This document covers the initial configuration of Node 01 - the LattePanda 3 Delta unit equipped with the DeepX DX-M1 NPU accelerator module. It covers hardware setup, BIOS configuration, driver verification, NPU inference validation via webcam demos, thermal management, and remote access. Node 02 is a second LattePanda 3 Delta without the DX-M1 module.
+This document covers the initial configuration of Node 01 - the LattePanda 3 Delta unit equipped with the DeepX DX-M1 NPU accelerator module. It covers hardware setup, BIOS configuration, driver verification, NPU inference validation via webcam demos, network configuration, and remote access. Node 02 is a second LattePanda 3 Delta without the DX-M1 module.
 
 > For the full driver installation walkthrough from scratch, see [DX-M1 Setup Guide](/docs/hardware/dx-m1-setup-guide.md).
 > For the hardware selection rationale, see [ADR-0001: DeepX DX-M1 vs Hailo-8](/docs/adr/0001-choosing-deepx-dxm1-over-hailo8.md).
@@ -151,48 +151,7 @@ The DKMS source at `/usr/src/dxrt-driver-dkms-2.1.0-2/` handles kernel module re
 
 ---
 
-## 5. Thermal Management — "Level-Fill Thermal Sandwich"
-
-The DX-M1 in the Titan Case (ABS plastic) requires a thermal sandwich to maintain stable temperatures. Without it, the NPU chip exceeds 60°C due to uneven board surface and trapped heat.
-
-### The Problem
-
-The DX-M1 board is uneven — the main NPU chip sits higher than the surrounding components. Placing a single thick thermal pad over everything creates air pockets in the valleys that act as insulators rather than conductors.
-
-### Materials
-
-| Item | Purpose |
-|---|---|
-| 1mm thermal pad | Valley fill — brings recesses flush with the chip surface |
-| 0.5mm thermal pad | Cap layer — continuous bridge across the entire module |
-| Small aluminum heatsink | Heat sink |
-| Kapton tape | Electrical isolation over gold components |
-
-### Build Steps
-
-#### Step 1 — Safety (Kapton tape)
-Cover the small gold components around the main NPU chip with Kapton tape. This prevents thermal pad material from causing electrical shorts on the board.
-
-#### Step 2 — Valley fill (1mm pad)
-Cut the 1mm pad into small pieces and place them into the recesses around the main chip. Goal: bring the valleys up to the same height as the chip surface. Do not use one large pad — it will bow and create air gaps.
-
-#### Step 3 — Cap (0.5mm strip)
-Lay a single continuous 0.5mm strip across the entire module, covering both the 1mm filler pieces and the main chip. This creates a flat, solid bridge for the heatsink to sit on.
-
-#### Step 4 — Heatsink
-Place the heatsink on top. Ensure a **small air gap** between the heatsink base and the plastic case floor — direct contact with plastic traps heat and prevents convection.
-
-### Why It Works
-
-- **No trapped air:** Valleys filled with conductive pad material instead of dead air
-- **No flex:** Even contact prevents the board from bowing under heatsink weight
-- **Convection:** Air gap at the base allows airflow across the heatsink fins
-
-**Result:** Stable idle temperatures of ~52°C (vs. 60°C+ without thermal management).
-
----
-
-## 6. SDK Directory Structure
+## 5. SDK Directory Structure
 
 The DeepX all-in-one suite is located at `~/dx-all-suite/`. Key directories:
 
@@ -212,11 +171,11 @@ source ~/dx-all-suite/dx-venv/bin/activate
 
 ---
 
-## 7. NPU Inference Demo Scripts
+## 6. NPU Inference Demo Scripts
 
 Demo scripts are located at `~/npu-demos/`. They use `dx_engine.InferenceEngine` directly against pre-compiled `.dxnn` models.
 
-### 7.1 Object Detection - YOLOv8N / YOLOv11N / YOLOv12N
+### 6.1 Object Detection - YOLOv8N / YOLOv11N / YOLOv12N
 
 **Script:** `~/npu-demos/webcam_yolo.py`
 
@@ -241,7 +200,7 @@ Press `q` to quit. FPS counter displayed top-left.
 - Output: `[1, 84, 8400]` - decoded as cx/cy/w/h + 80 class scores
 - Per-class NMS via `cv2.dnn.NMSBoxes`
 
-### 7.2 Face Detection - SCRFD500M
+### 6.2 Face Detection - SCRFD500M
 
 **Script:** `~/npu-demos/webcam_face.py`
 
@@ -260,7 +219,7 @@ python webcam_face.py
 - Strides 8/16/32 decoded separately then merged before NMS
 - Keypoints: green (right eye), blue (left eye), red (nose), cyan/yellow (mouth corners)
 
-### 7.3 Available Pre-compiled Models
+### 6.3 Available Pre-compiled Models
 
 All models at `~/dx-all-suite/workspace/res/models/models-2_2_1/`:
 
@@ -276,11 +235,119 @@ All models at `~/dx-all-suite/workspace/res/models/models-2_2_1/`:
 
 ---
 
-## 8. Remote Access - xrdp (RDP)
+## 7. Network Configuration — Static IP
+
+panda-control is the K3s control plane. Its Ethernet IP must be stable — if it changes, the cluster breaks. Ubuntu 24.04 cloud images use `cloud-init` to manage network config, which means `50-cloud-init.yaml` controls the interface with `dhcp4: true` by default. Without fixing this, the IP is held stable only by a router DHCP reservation, which is not a reliable guarantee.
+
+### 7.1 Identify the Active Ethernet Interface
+
+The Ethernet interface name differs between machines — do not assume it.
+
+```bash
+ip link show
+# Look for the enp* interface that is UP and not a virtual interface (flannel, cni0, veth*)
+# panda-control: enp2s0
+# panda-worker:  enp1s0
+```
+
+Confirm it has an active IP and note the current address and gateway:
+
+```bash
+ip addr show <interface>
+ip route show | grep default
+# default via <your-gateway-ip> dev <interface> proto dhcp src <your-static-ip>
+#                                                        ^^^^ still a DHCP lease — needs fixing
+```
+
+### 7.2 What Was Found on panda-control
+
+```bash
+ls /etc/netplan/
+# 01-network-manager-all.yaml   ← sets renderer: NetworkManager globally
+# 50-cloud-init.yaml            ← enp2s0 dhcp4: true + WiFi config (cloud-init managed)
+# 90-NM-c468eb42-*.yaml         ← NetworkManager WiFi connection (auto-generated)
+```
+
+Three issues:
+- `50-cloud-init.yaml` controlling `enp2s0` with `dhcp4: true` — would reset on reboot
+- No cloud-init network disable config in `/etc/cloud/cloud.cfg.d/`
+- Netplan file permissions too open (netplan warning on apply)
+
+### 7.3 Disable cloud-init Network Management
+
+Prevents cloud-init from regenerating `50-cloud-init.yaml` and overwriting static config on reboot.
+
+```bash
+sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<EOF
+network: {config: disabled}
+EOF
+```
+
+### 7.4 Write Static IP Config
+
+Overwrite `50-cloud-init.yaml` with a static Ethernet-only config. WiFi (`wlo1`) is disabled and removed from this file.
+
+```bash
+sudo tee /etc/netplan/50-cloud-init.yaml <<EOF
+network:
+  version: 2
+  ethernets:
+    enp2s0:
+      dhcp4: false
+      addresses:
+        - <your-static-ip>/22
+      routes:
+        - to: default
+          via: <your-gateway-ip>
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 8.8.8.8
+EOF
+```
+
+> **Subnet is /22, not /24.** The home network uses a /22 block. Preserve the exact prefix from `ip addr show`.
+
+> **Interface is `enp2s0`**, not `enp1s0`. panda-control and panda-worker have different Ethernet interface names — always verify with `ip link show` before writing the config.
+
+### 7.5 Fix Netplan File Permissions
+
+```bash
+sudo chmod 600 /etc/netplan/01-network-manager-all.yaml
+sudo chmod 600 /etc/netplan/50-cloud-init.yaml
+sudo chmod 600 /etc/netplan/90-NM-c468eb42-54ff-4b88-bec2-598d0e82f133.yaml
+```
+
+### 7.6 Apply and Verify
+
+```bash
+sudo netplan apply
+
+ip addr show enp2s0
+# inet line should show valid_lft forever (not a lease countdown)
+
+ip route show | grep default
+# proto static  (not proto dhcp)
+```
+
+---
+
+## 8. Session Type Verification
+
+```bash
+echo $XDG_SESSION_TYPE   # expected: x11
+echo $DISPLAY            # expected: :0
+```
+
+If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** at the GDM login screen.
+
+---
+
+## 9. Remote Access - xrdp (RDP)
 
 Remote desktop is configured via **xrdp** with an **XFCE4** session. This provides a separate lightweight remote session independent of the physical GNOME/Xorg desktop. Same underlying system - different window manager skin.
 
-### 8.1 Setup Summary
+### 9.1 Setup Summary
 
 ```bash
 sudo apt install xrdp xorgxrdp xfce4 xfce4-goodies -y
@@ -293,7 +360,7 @@ sudo systemctl start xrdp
 sudo ufw allow 3389/tcp
 ```
 
-### 8.2 Critical - Disable gnome-remote-desktop
+### 9.2 Critical - Disable gnome-remote-desktop
 
 `gnome-remote-desktop` runs as both a **system service** and a **user service**, and starts automatically on login - stealing port 3389 and preventing xrdp from binding. Both layers must be masked permanently.
 
@@ -325,7 +392,7 @@ sudo kill <PID>           # free the port
 sudo systemctl start xrdp
 ```
 
-### 8.3 Regenerate xrdp Certificate for Hostname
+### 9.3 Regenerate xrdp Certificate for Hostname
 
 After changing hostname, regenerate the TLS certificate to avoid stale CN warnings in RDP clients:
 
@@ -341,7 +408,7 @@ sudo chown root:ssl-cert /etc/xrdp/key.pem
 sudo systemctl restart xrdp
 ```
 
-### 8.4 Connection Details
+### 9.4 Connection Details
 
 | Property | Value |
 |---|---|
@@ -351,7 +418,7 @@ sudo systemctl restart xrdp
 | Session | XFCE4 (independent from physical display) |
 | Client | Microsoft Remote Desktop (Windows App) on Mac |
 
-### 8.5 Firewall Rules
+### 9.5 Firewall Rules
 
 | Port | Protocol | Purpose | Status |
 |---|---|---|---|
@@ -368,7 +435,7 @@ sudo systemctl restart xrdp
 
 > **Port 3390 note:** In Ubuntu 22.04/24.04, enabling both GNOME Remote Login and Desktop Sharing simultaneously causes Desktop Sharing to shift from port 3389 to port 3390. In this setup, `gnome-remote-desktop` is fully masked at both system and user level, so port 3390 is not open in UFW and nothing listens on it. Re-enable and open it only if Desktop Sharing is needed alongside xrdp.
 
-### 8.6 Mac Drive Sharing via RDP
+### 9.6 Mac Drive Sharing via RDP
 
 xrdp supports Mac drive redirection into the remote session via `thinkclient_drives`:
 
@@ -382,7 +449,7 @@ To disable drive redirection entirely, add to `/etc/xrdp/xrdp.ini` under `[Globa
 enable_shared_drives=false
 ```
 
-### 8.7 Notes
+### 9.7 Notes
 
 - Physical display runs **GNOME on Xorg**. RDP session runs **XFCE4** - different UI, same underlying system.
 - Ubuntu 24.04 defaults to **Wayland**. Session must be **Xorg** for xrdp. Select **Ubuntu on Xorg** at the GDM login screen (gear icon).
@@ -390,115 +457,7 @@ enable_shared_drives=false
 
 ---
 
-## 9. Network Configuration — Static IP
-
-panda-control is the K3s control plane. Its Ethernet IP must be stable — if it changes, the cluster breaks. Ubuntu 24.04 cloud images use `cloud-init` to manage network config, which means `50-cloud-init.yaml` controls the interface with `dhcp4: true` by default. Without fixing this, the IP is held stable only by a router DHCP reservation, which is not a reliable guarantee.
-
-### 9.1 Identify the Active Ethernet Interface
-
-The Ethernet interface name differs between machines — do not assume it.
-
-```bash
-ip link show
-# Look for the enp* interface that is UP and not a virtual interface (flannel, cni0, veth*)
-# panda-control: enp2s0
-# panda-worker:  enp1s0
-```
-
-Confirm it has an active IP and note the current address and gateway:
-
-```bash
-ip addr show <interface>
-ip route show | grep default
-# default via <your-gateway-ip> dev <interface> proto dhcp src <your-static-ip>
-#                                                        ^^^^ still a DHCP lease — needs fixing
-```
-
-### 9.2 What Was Found on panda-control
-
-```bash
-ls /etc/netplan/
-# 01-network-manager-all.yaml   ← sets renderer: NetworkManager globally
-# 50-cloud-init.yaml            ← enp2s0 dhcp4: true + WiFi config (cloud-init managed)
-# 90-NM-c468eb42-*.yaml         ← NetworkManager WiFi connection (auto-generated)
-```
-
-Three issues:
-- `50-cloud-init.yaml` controlling `enp2s0` with `dhcp4: true` — would reset on reboot
-- No cloud-init network disable config in `/etc/cloud/cloud.cfg.d/`
-- Netplan file permissions too open (netplan warning on apply)
-
-### 9.3 Disable cloud-init Network Management
-
-Prevents cloud-init from regenerating `50-cloud-init.yaml` and overwriting static config on reboot.
-
-```bash
-sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<EOF
-network: {config: disabled}
-EOF
-```
-
-### 9.4 Write Static IP Config
-
-Overwrite `50-cloud-init.yaml` with a static Ethernet-only config. WiFi (`wlo1`) is disabled and removed from this file.
-
-```bash
-sudo tee /etc/netplan/50-cloud-init.yaml <<EOF
-network:
-  version: 2
-  ethernets:
-    enp2s0:
-      dhcp4: false
-      addresses:
-        - <your-static-ip>/22
-      routes:
-        - to: default
-          via: <your-gateway-ip>
-      nameservers:
-        addresses:
-          - 1.1.1.1
-          - 8.8.8.8
-EOF
-```
-
-> **Subnet is /22, not /24.** The home network uses a /22 block. Preserve the exact prefix from `ip addr show`.
-
-> **Interface is `enp2s0`**, not `enp1s0`. panda-control and panda-worker have different Ethernet interface names — always verify with `ip link show` before writing the config.
-
-### 9.5 Fix Netplan File Permissions
-
-```bash
-sudo chmod 600 /etc/netplan/01-network-manager-all.yaml
-sudo chmod 600 /etc/netplan/50-cloud-init.yaml
-sudo chmod 600 /etc/netplan/90-NM-c468eb42-54ff-4b88-bec2-598d0e82f133.yaml
-```
-
-### 9.6 Apply and Verify
-
-```bash
-sudo netplan apply
-
-ip addr show enp2s0
-# inet line should show valid_lft forever (not a lease countdown)
-
-ip route show | grep default
-# proto static  (not proto dhcp)
-```
-
----
-
-## 10. Session Type Verification
-
-```bash
-echo $XDG_SESSION_TYPE   # expected: x11
-echo $DISPLAY            # expected: :0
-```
-
-If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** at the GDM login screen.
-
----
-
-## 11. Known Limitations
+## 10. Known Limitations
 
 | Limitation | Detail |
 |---|---|
@@ -506,12 +465,12 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 | Gen2 required for stability | Gen1 (2.5 GT/s) causes DMA header overflow during DX-M1 firmware init. Always use Gen2 or higher. |
 | B-Key SATA only | B-Key slot is wired for SATA signals. NVMe M.2 drives will not work in the B-Key slot. |
 | Wayland incompatible with xrdp | xrdp requires an X11 session. Must log in with Ubuntu on Xorg at GDM. |
-| gnome-remote-desktop conflicts with xrdp | Must be masked at both system and user level - see Section 8.2. |
+| gnome-remote-desktop conflicts with xrdp | Must be masked at both system and user level - see Section 9.2. |
 | 64GB eMMC | OS is on SATA SSD. eMMC is kept as a recovery boot device and excluded from auto-mount via udev rule. |
 
 ---
 
-## 12. Key File Locations
+## 11. Key File Locations
 
 | File | Purpose |
 |---|---|
@@ -526,7 +485,7 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 
 ---
 
-## 13. System Summary
+## 12. System Summary
 
 ```
 <your-username>@panda-control (Node 01)
@@ -571,7 +530,7 @@ If Wayland is detected after a reboot, log out and re-select **Ubuntu on Xorg** 
 
 ---
 
-## 14. References
+## 13. References
 
 - [DeepX Developer Portal](https://developer.deepx.ai)
 - [dx-all-suite README](~/dx-all-suite/README.md)
