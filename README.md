@@ -9,11 +9,11 @@
 
 ## Project Overview
 
-The Bare Metal MLOps Sandbox is a high-fidelity engineering environment designed to bridge the gap between theoretical machine learning and real-world deployment. While many developers rely on abstracted cloud services, this project focuses on the "metal" — the physical hardware and low-level configurations required to run AI reliably at the edge. By building a custom, multi-node cluster using LattePanda 3 Delta hardware running Ubuntu, the system replicates the complex, distributed environments used in industrial-grade pipelines but on a localized, highly efficient scale.
+The Bare Metal MLOps Sandbox is a hands-on engineering environment for learning how to deploy and operate machine learning systems on real hardware. Rather than relying on cloud abstractions, this project builds everything from the ground up — bare metal nodes, a local Kubernetes cluster, hardware-accelerated inference, and a full observability stack.
 
-A core focus of the sandbox is mastering the integration of specialized hardware with modern automation. A DeepX DX-M1 AI accelerator handles intensive computer vision and NLP tasks, utilizing a custom-engineered thermal management solution to ensure stable performance under heavy workloads. This hands-on approach to hardware optimization ensures that the AI isn't just functional, but remains resilient and performant in constrained physical environments.
+The cluster runs two LattePanda 3 Delta nodes. The control plane hosts a DeepX DX-M1 NPU accelerator, which runs computer vision inference workloads as host-native systemd services. A key discovery during this build: the DX-M1's kernel IPC mechanism (`dxrtd`) is incompatible with container process isolation — inference services must run directly on the host, exposed to the cluster via Kubernetes ExternalName services.
 
-The entire ecosystem is orchestrated using Kubernetes (K3s), which manages the hardware nodes as a unified resource pool. Automated CI/CD pipelines trigger model quantization and containerization directly on the control plane when code changes land on GitHub. Images are stored in a private local Docker registry and deployed to the cluster with zero downtime. A Prometheus and Grafana stack provides real-time telemetry, tracking everything from NPU temperature to model inference latency.
+Observability is handled by Prometheus and Grafana, scraping both cluster metrics and per-model inference latency from the NPU services. A private local Docker registry serves container images to both nodes, with a daily garbage collection CronJob to manage storage.
 
 ---
 
@@ -28,53 +28,59 @@ The entire ecosystem is orchestrated using Kubernetes (K3s), which manages the h
 
 ### Control Plane (`panda-control`)
 
-- **Kubernetes API server** — accepts and validates cluster commands
-- **Scheduler** — decides where workloads run across the cluster
-- **Controller Manager** — maintains desired cluster state
-- **etcd** — stores all cluster configuration and state
-- **Docker Registry** — serves container images to both nodes
-- **DX-M1 Inference Module** — runs hardware-accelerated inference workloads
-- **Prometheus / Grafana** — collects and visualizes cluster and model metrics
+- **K3s API server, scheduler, controller manager, etcd** — cluster orchestration
+- **Local Docker registry** — serves images to both nodes (NodePort 32034)
+- **registry-gc CronJob** — daily tag pruning and garbage collection
+- **yolov8n-inference** — YOLOv8N object detection via DX-M1 NPU (systemd, port 8000)
+- **scrfd-inference** — SCRFD500M face detection via DX-M1 NPU (systemd, port 8002)
+- **status-api** — cluster status API for Inky Frame display (systemd, port 8001)
+- **Prometheus / Grafana** — cluster health, node metrics, and inference latency
 
 ### Worker (`panda-worker`)
 
-- **Kubelet** — receives instructions from control plane, manages containers
-- **Container Runtime** — executes containers on the node
-- Pulls images from the Node 1 registry on demand
-- Runs orchestration/monitoring pods if scheduled here
-- Reports status back to the control plane
+- **K3s agent** — receives workloads from control plane, manages containers
+- Pulls images from the control plane registry
+- CPU-only compute node (no NPU)
+- Runs cluster DaemonSet pods (node-exporter, Traefik ServiceLB)
 
 ---
 
 ## Stack
 
 - **Compute:** Intel Celeron N5105 (LattePanda 3 Delta) × 2 nodes
-- **Acceleration:** DeepX DX-M1 (25 TOPS, 4 GB LPDDR5) for CV and NLP inference
+- **Acceleration:** DeepX DX-M1 (25 TOPS, 4 GB LPDDR5) — host-native inference only (not containerizable)
 - **Orchestration:** K3s (Lightweight Kubernetes)
-- **CI/CD:** GitHub Actions with self-hosted runners
-- **Registry:** Private local Docker registry on control plane
-- **Observability:** Prometheus / Grafana — NPU telemetry, inference latency, cluster health
-- **Networking:** Tailscale (secure overlay)
+- **Registry:** Private local Docker registry on control plane with daily GC
+- **Observability:** Prometheus / Grafana — node metrics, NPU temperature, inference latency
 - **OS:** Ubuntu 24.04 LTS
 
 ---
 
-## 6-Month Roadmap
+## Roadmap
 
-### Phase 1 — Foundation (Months 1–2) — In Progress
+### Phase 1 — Foundation — In Progress
 
-- OS provisioning and hardening on both nodes
-- K3s cluster initialization and network overlay configuration
-- CI/CD handshake between GitHub Actions and the local edge environment
+| # | Item | Status |
+|---|---|---|
+| 1 | OS provisioning and static networking on both nodes | Done |
+| 2 | K3s cluster initialization (control plane + worker) | Done |
+| 3 | DX-M1 NPU driver installation and validation | Done |
+| 4 | Local Docker registry with garbage collection CronJob | Done |
+| 5 | Prometheus + Grafana observability stack | Done |
+| 6 | YOLOv8N inference service (NPU-accelerated, host-native) | Done |
+| 7 | SCRFD face detection service (NPU-accelerated, host-native) | Done |
+| 8 | Multi-node networking verification (Flannel VXLAN + kube-dns) | Done |
+| 9 | Grafana dashboard committed to repo | Upcoming |
+| 10 | CI/CD pipeline (GitHub Actions → local registry) | Upcoming |
 
-### Phase 2 — Acceleration & Serving (Months 3–4) — Upcoming
+### Phase 2 — Acceleration & Serving — Upcoming
 
-- Integrating the DeepX DX-M1 drivers into the K8s runtime
-- Containerizing ML models (TensorFlow/PyTorch) optimized for NPU execution
-- Implementing a private model registry and versioning system
+- Additional NPU inference services (pose estimation, segmentation)
+- Model versioning and rollback via registry tags
+- Load testing and CPU vs. NPU benchmarking
 
-### Phase 3 — Observability & Scale (Months 5–6) — Upcoming
+### Phase 3 — Observability & Scale — Upcoming
 
-- Deploying Prometheus/Grafana for real-time hardware and model telemetry
-- Simulating high-concurrency loads and benchmarking CPU vs. NPU performance
-- Secure tunneling for live demonstrations and remote access
+- Grafana alerting for NPU temperature and inference latency thresholds
+- Horizontal scaling of CPU-bound workloads on panda-worker
+- Secure remote access for live demonstrations
