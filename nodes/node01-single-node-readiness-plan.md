@@ -430,16 +430,16 @@ kubectl create secret generic inference-scrape-config \
   --from-literal=inference.yaml="$(cat <<'EOF'
 - job_name: yolov8n-inference
   static_configs:
-    - targets: ["192.168.7.63:8001"]
+    - targets: ["<panda-control-ip>:8001"]
 - job_name: scrfd-inference
   static_configs:
-    - targets: ["192.168.7.63:8002"]
+    - targets: ["<panda-control-ip>:8002"]
 - job_name: mobilenetv2-inference
   static_configs:
-    - targets: ["192.168.7.63:8003"]
+    - targets: ["<panda-control-ip>:8003"]
 - job_name: yolov8n-seg-inference
   static_configs:
-    - targets: ["192.168.7.63:8004"]
+    - targets: ["<panda-control-ip>:8004"]
 EOF
 )" \
   --dry-run=client -o yaml | kubectl apply -f -
