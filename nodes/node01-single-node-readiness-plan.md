@@ -24,13 +24,13 @@
 
 Install K3s with TLS SANs for both hostname and static IP so the API server certificate remains valid when node 02 joins.
 
-> **Important — set `--node-ip` at install time.** K3s auto-detects the node IP on first startup and caches it. If the network changes later (interface disabled, DHCP reassignment, WiFi removed), K3s will fail to start with `failed to find interface with specified node ip`. Always pin `--node-ip` to the static Ethernet IP at install time to prevent this. Reserve the static IP on the router by MAC address *before* running the installer.
+> **Important — set `--node-ip` at install time.** K3s auto-detects the node IP on first startup and caches it. If the network changes later (interface disabled, DHCP reassignment, WiFi removed), K3s will fail to start with `failed to find interface with specified node ip`. Always pin `--node-ip` to `<panda-control-ip>` at install time to prevent this. Reserve the static IP on the router by MAC address *before* running the installer.
 
 ```bash
 curl -sfL https://get.k3s.io | sh -s - \
   --tls-san panda-control.local \
-  --tls-san <your-static-ip> \
-  --node-ip <your-static-ip> \
+  --tls-san <panda-control-ip> \
+  --node-ip <panda-control-ip> \
   --write-kubeconfig-mode 644
 ```
 
