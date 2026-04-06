@@ -1,4 +1,4 @@
-dx_engine/
+dx_engine
 libdxrt.so
 libonnxruntime.so.1
 models/
