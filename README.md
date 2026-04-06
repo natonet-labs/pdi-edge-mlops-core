@@ -77,7 +77,7 @@ Observability is handled by Prometheus and Grafana, scraping both cluster metric
 
 | # | Item | Status |
 |---|---|---|
-| 1 | MobileNetV2 classification inference service (third NPU service) | Upcoming |
+| 1 | MobileNetV2 classification inference service (third NPU service) | Done |
 | 2 | YOLOv8N-SEG segmentation inference service (fourth NPU service) | Upcoming |
 | 3 | Update npu-inference Grafana dashboard with new `$job` options | Upcoming |
 | 4 | Model version info metric — Prometheus gauge exposing active model version per service | Upcoming |
