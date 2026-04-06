@@ -75,12 +75,26 @@ Observability is handled by Prometheus and Grafana, scraping both cluster metric
 
 ### Phase 2 — Acceleration & Serving — Upcoming
 
-- Additional NPU inference services (pose estimation, segmentation)
-- Model versioning and rollback via registry tags
-- Load testing and CPU vs. NPU benchmarking
+| # | Item | Status |
+|---|---|---|
+| 1 | MobileNetV2 classification inference service (third NPU service) | Upcoming |
+| 2 | YOLOv8N-SEG segmentation inference service (fourth NPU service) | Upcoming |
+| 3 | Update npu-inference Grafana dashboard with new `$job` options | Upcoming |
+| 4 | Model version info metric — Prometheus gauge exposing active model version per service | Upcoming |
+| 5 | Rollback procedure — re-tag registry + restart service, validated end-to-end | Upcoming |
+| 6 | First containerized workload on panda-worker | Upcoming |
+| 7 | Inference load test baseline — req/s and latency p50/p95/p99 per model under sustained load | Upcoming |
+| 8 | CPU vs. NPU benchmark — same workload on host CPU vs. DX-M1, documented results | Upcoming |
 
 ### Phase 3 — Observability & Scale — Upcoming
 
-- Grafana alerting for NPU temperature and inference latency thresholds
-- Horizontal scaling of CPU-bound workloads on panda-worker
-- Secure remote access for live demonstrations
+| # | Item | Status |
+|---|---|---|
+| 1 | Grafana alert rules — inference latency SLO (>50ms p95) and NPU temperature ceiling | Upcoming |
+| 2 | Grafana alert rules — pod restart rate and node-down detection | Upcoming |
+| 3 | Alertmanager routing — deliver alerts to a notification channel | Upcoming |
+| 4 | Horizontal Pod Autoscaler on panda-worker containerized workload | Upcoming |
+| 5 | Automated rollback — Alertmanager webhook triggers revert to previous registry tag on SLO breach | Upcoming |
+| 6 | Model output drift detection — track detection count distribution shift over time via Prometheus | Upcoming |
+| 7 | Node failure simulation — cordon/drain panda-worker, verify workload rescheduling | Upcoming |
+| 8 | Secure remote access via Tailscale for live cluster demonstrations | Upcoming |
