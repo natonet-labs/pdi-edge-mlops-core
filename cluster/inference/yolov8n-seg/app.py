@@ -161,7 +161,7 @@ def postprocess(output_tensors, orig_h, orig_w, gain, pad_top, pad_left):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": "YOLOv8N-SEG", "build": "v1.0.0-002"}
+    return {"status": "ok", "model": "YOLOv8N-SEG"}
 
 
 @app.post("/infer")
